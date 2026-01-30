@@ -1,46 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ActivityItem } from './ActivityItem';
+import { getActivities, subscribeToActivities } from '@/lib/supabase';
 import type { Activity } from '@/types';
 
-// Placeholder activities - will be replaced with Supabase data
-const PLACEHOLDER_ACTIVITIES: Activity[] = [
-  {
-    id: '1',
-    type: 'pr_opened',
-    title: 'Opened PR #1: Compliance Scoring Timeout Fix',
-    description: 'Added dynamic timeout based on transcript length',
-    metadata: { repo: 'sales-coaching-ai-v2', pr_number: 1 },
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: '2',
-    type: 'task_created',
-    title: 'Created task: Optimize Sales Coaching AI Token Consumption',
-    description: 'Added to Todoist inbox with full context',
-    metadata: { task_id: '9969307768' },
-    created_at: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    id: '3',
-    type: 'system',
-    title: 'Connected to n8n',
-    description: '47 workflows found (24 active)',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: '4',
-    type: 'error',
-    title: 'Detected Sentry issues in sales-coaching-ai-v2',
-    description: '2,424 objection_detection failures, 46 compliance_scoring timeouts',
-    metadata: { project: 'sales-coaching-ai-v2' },
-    created_at: new Date(Date.now() - 10800000).toISOString(),
-  },
-];
-
 export function ActivityList() {
-  const [activities] = useState<Activity[]>(PLACEHOLDER_ACTIVITIES);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadActivities() {
+      try {
+        const data = await getActivities();
+        setActivities(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load activities');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadActivities();
+
+    // Subscribe to realtime updates
+    const subscription = subscribeToActivities(setActivities);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-pulse text-muted-foreground">Loading activities...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-500">Error: {error}</div>
+      </div>
+    );
+  }
+
+  if (activities.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">No activities yet</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl">

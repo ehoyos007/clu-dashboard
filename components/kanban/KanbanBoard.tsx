@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Plus } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
-import { getTasks, updateTaskStatus, subscribeToTasks } from '@/lib/supabase';
+import { NewTaskDialog } from './NewTaskDialog';
+import { getTasks, updateTaskStatus, createTask, subscribeToTasks } from '@/lib/supabase';
 import type { Task, TaskStatus } from '@/types';
 
 const COLUMNS: { id: TaskStatus; title: string }[] = [
@@ -16,6 +18,7 @@ export function KanbanBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
 
   // Load tasks on mount
   useEffect(() => {
@@ -61,6 +64,21 @@ export function KanbanBoard() {
     }
   };
 
+  const handleCreateTask = async (taskData: {
+    title: string;
+    description?: string;
+    priority: number;
+    project?: string;
+    status: TaskStatus;
+  }) => {
+    try {
+      const newTask = await createTask(taskData);
+      setTasks((prev) => [newTask, ...prev]);
+    } catch (err) {
+      console.error('Failed to create task:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -78,16 +96,37 @@ export function KanbanBoard() {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100%-2rem)] overflow-x-auto pb-4">
-      {COLUMNS.map((column) => (
-        <KanbanColumn
-          key={column.id}
-          id={column.id}
-          title={column.title}
-          tasks={getTasksForColumn(column.id)}
-          onStatusChange={handleStatusChange}
-        />
-      ))}
-    </div>
+    <>
+      {/* Header with New Task button */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => setIsNewTaskOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" />
+          New Task
+        </button>
+      </div>
+
+      {/* Kanban columns */}
+      <div className="flex gap-4 h-[calc(100%-5rem)] overflow-x-auto pb-4">
+        {COLUMNS.map((column) => (
+          <KanbanColumn
+            key={column.id}
+            id={column.id}
+            title={column.title}
+            tasks={getTasksForColumn(column.id)}
+            onStatusChange={handleStatusChange}
+          />
+        ))}
+      </div>
+
+      {/* New Task Dialog */}
+      <NewTaskDialog
+        isOpen={isNewTaskOpen}
+        onClose={() => setIsNewTaskOpen(false)}
+        onSubmit={handleCreateTask}
+      />
+    </>
   );
 }
